@@ -2,20 +2,84 @@
 
 Code for the `TWK_KBE58_SSI` Arduino library.
 
-This code reads the SSI absolute encoder inside a Rohde & Schwarz RD130 rotor.  
-The encoder is assumed to be a TWK KBE 58 - K 4096 G K E06 with Gray code, 12 useful position bits and 13 SSI clocks.
+This library reads the SSI absolute encoder inside a Rohde & Schwarz RD130 rotor.
 
-The interface between the ESP32 and the encoder uses one ADM3490ARZ full duplex RS422 transceiver.
+The encoder is assumed to be a TWK KBE 58 - K 4096 G K E06 with:
 
-## License
+- Gray code output
+- 12 useful position bits
+- 13 SSI clock pulses
+- 4096 positions per revolution
+- Single-turn absolute position
 
-Copyright (C) 2026 Joerg Koerner DK8DE
+The library reads and provides:
 
-This example is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+- SSI raw value
+- Gray value
+- Binary position
+- DATA idle level
+- Trailing bits
+- Angle in degrees
 
-This example is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+The angle output can be rounded to 0.1 degrees in the example sketch.
 
-## ADM3490ARZ Connection
+## Supported Boards
+
+The library is written for Arduino-compatible boards and can be used with ESP32, ESP32-S3, Arduino and other microcontrollers, as long as the board can generate a stable SSI clock and read a digital input.
+
+The Arduino `library.properties` file may use:
+
+```ini
+architectures=*
+```
+
+This makes the library visible for all Arduino architectures.
+
+## Logic Level and RS422 Interface
+
+The encoder does not use direct TTL or CMOS logic signals.
+
+The SSI interface uses differential RS422/RS485-style signals:
+
+- CLOCK IN +
+- CLOCK IN -
+- DATA OUT +
+- DATA OUT -
+
+Never connect these differential encoder signals directly to Arduino, ESP32 or other microcontroller GPIO pins.
+
+A suitable full duplex RS422 transceiver is required.
+
+## Recommended Transceiver for 3.3 V Boards
+
+For ESP32, ESP32-S3 and other 3.3 V Arduino-compatible boards, the recommended transceiver is:
+
+```text
+ADM3490ARZ
+```
+
+The ADM3490ARZ is a 3.3 V full duplex RS422 transceiver. It can send the SSI clock to the encoder and receive the SSI data from the encoder at the same time.
+
+## Recommended Transceiver for 5 V Arduino Boards
+
+For classic 5 V Arduino boards such as Arduino Uno, Arduino Nano or Arduino Mega, do not use the ADM3490ARZ directly with 5 V logic.
+
+For 5 V boards, use a 5 V full duplex RS422 transceiver, for example:
+
+```text
+MAX490
+```
+
+The MAX490 is suitable for 5 V logic and provides one differential driver and one differential receiver. It can be used for the SSI clock and data lines.
+
+Typical use with 5 V Arduino boards:
+
+- Arduino digital output -> MAX490 driver input -> CLOCK+/CLOCK-
+- DATA+/DATA- -> MAX490 receiver input -> Arduino digital input
+
+If a 3.3 V RS422 transceiver is used with a 5 V Arduino board, proper level shifting is required.
+
+## ADM3490ARZ Connection for ESP32 / 3.3 V Boards
 
 ```text
                  ADM3490ARZ
@@ -25,6 +89,13 @@ This example is distributed in the hope that it will be useful, but WITHOUT ANY 
  IO8  --->| 3 DI             Z 6 |---- CLOCK- -> Encoder Pin 2
  GND  ----| 4 GND            Y 5 |---- CLOCK+ -> Encoder Pin 1
           +----------------------+
+```
+
+Default example pin assignment:
+
+```text
+IO8  -> SSI clock output
+IO9  -> SSI data input
 ```
 
 ## Connection at the Rohde & Schwarz RD130 Rotor
@@ -60,10 +131,55 @@ Motor connector:
 
 ```text
 Important notes:
-- Never connect CLOCK+/CLOCK- or DATA+/DATA- directly to ESP32 GPIO pins.
-- Use the ADM3490ARZ or another suitable full duplex RS422 transceiver.
-- Connect ESP32 GND, ADM3490 GND and encoder 0 V together.
+- Never connect CLOCK+/CLOCK- or DATA+/DATA- directly to Arduino or ESP32 GPIO pins.
+- Use the ADM3490ARZ for 3.3 V boards or another suitable full duplex RS422 transceiver.
+- For 5 V Arduino boards, use a 5 V full duplex RS422 transceiver such as the MAX490.
+- Connect microcontroller GND, RS422 transceiver GND and encoder 0 V together.
 - Keep CLOCK+/CLOCK- and DATA+/DATA- as twisted or closely coupled pairs.
-- Use a 100 nF decoupling capacitor close to the ADM3490 VCC and GND pins.
-- For the DATA pair, a 120 ohm termination close to the ADM3490 receiver is recommended.
+- Use a 100 nF decoupling capacitor close to the RS422 transceiver VCC and GND pins.
+- For the DATA pair, a 120 ohm termination close to the receiver is recommended.
+- For longer CLOCK lines, a 120 ohm termination at the encoder side may be required.
 ```
+
+## Example Output
+
+The example sketch prints diagnostic values to the serial console:
+
+```text
+DATA-Idle: 1 | Rohwert: 0b0110111110110 | Trailing: 0 | Gray: 0b011011111011 | Position: 1197 / 4096 | Winkel: 105.2 Grad
+```
+
+The output contains:
+
+- `DATA-Idle`: logic level on the data input before the SSI telegram starts
+- `Rohwert`: complete SSI raw value
+- `Trailing`: trailing bits after the useful data bits
+- `Gray`: extracted Gray code value
+- `Position`: binary position after Gray-to-binary conversion
+- `Winkel`: calculated angle in degrees, rounded to 0.1 degrees
+
+## Encoder Resolution
+
+The assumed encoder resolution is:
+
+```text
+4096 positions per revolution
+```
+
+This means:
+
+```text
+0      -> 0.0 degrees
+1024   -> 90.0 degrees
+2048   -> 180.0 degrees
+3072   -> 270.0 degrees
+4095   -> just below 360.0 degrees
+```
+
+## License
+
+Copyright (C) 2026 Joerg Koerner DK8DE
+
+This library is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
