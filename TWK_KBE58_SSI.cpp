@@ -98,7 +98,6 @@ TWK_KBE58_SSI::Reading TWK_KBE58_SSI::read()
   Reading reading;
 
   reading.dataIdleLevel = digitalRead(_dataPin);
-
   reading.rawValue = readRaw();
 
   uint32_t trailingMask = 0;
