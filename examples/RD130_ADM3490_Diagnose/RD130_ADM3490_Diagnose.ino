@@ -83,26 +83,17 @@ const uint8_t SSI_TRAILING_BITS = 1;
 // Create the encoder reader object.
 TWK_KBE58_SSI encoder(PIN_SSI_CLOCK, PIN_SSI_DATA, SSI_USEFUL_BITS, SSI_TOTAL_CLOCKS, SSI_TRAILING_BITS);
 
-// ------------------------------------------------------------
-// Serial output helper functions
-// ------------------------------------------------------------
-
 void debugBegin(unsigned long baudRate)
 {
-  // Start normal Arduino serial output.
   Serial.begin(baudRate);
 
 #if defined(ESP32)
-  // Start UART0 output on ESP32 boards.
-  // This is useful on ESP32-S3 boards with two USB connectors,
-  // where USB CDC and USB UART may appear as different COM ports.
   Serial0.begin(baudRate);
 #endif
 }
 
 void debugPrint(const char *text)
 {
-  // Print text without line break.
   Serial.print(text);
 
 #if defined(ESP32)
@@ -112,7 +103,6 @@ void debugPrint(const char *text)
 
 void debugPrintln(const char *text)
 {
-  // Print text with line break.
   Serial.println(text);
 
 #if defined(ESP32)
@@ -122,7 +112,6 @@ void debugPrintln(const char *text)
 
 void debugPrintInt(int value)
 {
-  // Print signed integer value.
   Serial.print(value);
 
 #if defined(ESP32)
@@ -132,7 +121,6 @@ void debugPrintInt(int value)
 
 void debugPrintUInt(uint32_t value)
 {
-  // Print unsigned integer value.
   Serial.print(value);
 
 #if defined(ESP32)
@@ -142,7 +130,6 @@ void debugPrintUInt(uint32_t value)
 
 void debugPrintFloat(float value, uint8_t digits)
 {
-  // Print floating point value.
   Serial.print(value, digits);
 
 #if defined(ESP32)
@@ -152,7 +139,6 @@ void debugPrintFloat(float value, uint8_t digits)
 
 void debugPrintlnEmpty()
 {
-  // Print empty line.
   Serial.println();
 
 #if defined(ESP32)
@@ -162,7 +148,6 @@ void debugPrintlnEmpty()
 
 void debugPrintBinary(uint32_t value, uint8_t bitCount)
 {
-  // Print a fixed-width binary value.
   for (int8_t bit = bitCount - 1; bit >= 0; bit--)
   {
     uint8_t bitValue = (value >> bit) & 1;
@@ -175,13 +160,8 @@ void debugPrintBinary(uint32_t value, uint8_t bitCount)
   }
 }
 
-// ------------------------------------------------------------
-// Startup information
-// ------------------------------------------------------------
-
 void printStartupInfo()
 {
-  // Print startup information to the serial console.
   debugPrintlnEmpty();
   debugPrintln("Rohde & Schwarz RD130 SSI encoder diagnosis started");
   debugPrintln("Library: TWK_KBE58_SSI");
@@ -202,69 +182,47 @@ void printStartupInfo()
   debugPrintlnEmpty();
 }
 
-// ------------------------------------------------------------
-// Arduino setup
-// ------------------------------------------------------------
-
 void setup()
 {
-  // Start serial output.
   debugBegin(115200);
 
-  // Give boards with native USB some time after reset.
   delay(3000);
 
-  // Initialize the encoder pins.
   encoder.begin();
 
-  // Use a safe default timing for the TWK SSI encoder.
   encoder.setHalfPeriodUs(5);
   encoder.setFramePauseUs(80);
   encoder.setClockIdleHigh(true);
   encoder.setInvertData(false);
 
-  // Print information about the example and hardware connection.
   printStartupInfo();
 }
 
-// ------------------------------------------------------------
-// Arduino loop
-// ------------------------------------------------------------
-
 void loop()
 {
-  // Read all currently available diagnostic values from the library.
   TWK_KBE58_SSI::Reading reading = encoder.read();
 
-  // Print DATA idle level.
   debugPrint("DATA-Idle: ");
   debugPrintInt(reading.dataIdleLevel);
 
-  // Print complete SSI raw value.
   debugPrint(" | Raw: 0b");
   debugPrintBinary(reading.rawValue, encoder.totalClocks());
 
-  // Print trailing bits.
   debugPrint(" | Trailing: ");
   debugPrintUInt(reading.trailingBits);
 
-  // Print extracted Gray value.
   debugPrint(" | Gray: 0b");
   debugPrintBinary(reading.grayValue, encoder.usefulBits());
 
-  // Print binary encoder position.
   debugPrint(" | Position: ");
   debugPrintUInt(reading.position);
 
-  // Print maximum position count.
   debugPrint(" / ");
   debugPrintUInt(encoder.stepsPerRevolution());
 
-  // Print angle rounded to 0.1 degree.
   debugPrint(" | Angle: ");
   debugPrintFloat(reading.angleDegRounded, 1);
   debugPrintln(" deg");
 
-  // Slow down the serial output.
   delay(200);
 }
