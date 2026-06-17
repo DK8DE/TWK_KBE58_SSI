@@ -83,36 +83,133 @@ const uint8_t SSI_TRAILING_BITS = 1;
 // Create the encoder reader object.
 TWK_KBE58_SSI encoder(PIN_SSI_CLOCK, PIN_SSI_DATA, SSI_USEFUL_BITS, SSI_TOTAL_CLOCKS, SSI_TRAILING_BITS);
 
-void printBinary(uint32_t value, uint8_t bitCount)
+// ------------------------------------------------------------
+// Serial output helper functions
+// ------------------------------------------------------------
+
+void debugBegin(unsigned long baudRate)
+{
+  // Start normal Arduino serial output.
+  Serial.begin(baudRate);
+
+#if defined(ESP32)
+  // Start UART0 output on ESP32 boards.
+  // This is useful on ESP32-S3 boards with two USB connectors,
+  // where USB CDC and USB UART may appear as different COM ports.
+  Serial0.begin(baudRate);
+#endif
+}
+
+void debugPrint(const char *text)
+{
+  // Print text without line break.
+  Serial.print(text);
+
+#if defined(ESP32)
+  Serial0.print(text);
+#endif
+}
+
+void debugPrintln(const char *text)
+{
+  // Print text with line break.
+  Serial.println(text);
+
+#if defined(ESP32)
+  Serial0.println(text);
+#endif
+}
+
+void debugPrintInt(int value)
+{
+  // Print signed integer value.
+  Serial.print(value);
+
+#if defined(ESP32)
+  Serial0.print(value);
+#endif
+}
+
+void debugPrintUInt(uint32_t value)
+{
+  // Print unsigned integer value.
+  Serial.print(value);
+
+#if defined(ESP32)
+  Serial0.print(value);
+#endif
+}
+
+void debugPrintFloat(float value, uint8_t digits)
+{
+  // Print floating point value.
+  Serial.print(value, digits);
+
+#if defined(ESP32)
+  Serial0.print(value, digits);
+#endif
+}
+
+void debugPrintlnEmpty()
+{
+  // Print empty line.
+  Serial.println();
+
+#if defined(ESP32)
+  Serial0.println();
+#endif
+}
+
+void debugPrintBinary(uint32_t value, uint8_t bitCount)
 {
   // Print a fixed-width binary value.
   for (int8_t bit = bitCount - 1; bit >= 0; bit--)
   {
     uint8_t bitValue = (value >> bit) & 1;
+
     Serial.print(bitValue);
+
+#if defined(ESP32)
+    Serial0.print(bitValue);
+#endif
   }
 }
+
+// ------------------------------------------------------------
+// Startup information
+// ------------------------------------------------------------
 
 void printStartupInfo()
 {
   // Print startup information to the serial console.
-  Serial.println();
-  Serial.println("Rohde & Schwarz RD130 SSI encoder diagnosis started");
-  Serial.println("Library: TWK_KBE58_SSI");
-  Serial.println("License: GPLv3 or later");
-  Serial.println("Encoder: TWK KBE 58 - K 4096 G K E06, Gray SSI");
-  Serial.println("Default clock pin: IO8 -> RS422 driver input");
-  Serial.println("Default data  pin: IO9 <- RS422 receiver output");
-  Serial.println("3.3 V boards: ADM3490ARZ can be used");
-  Serial.println("5 V boards: use a 5 V full duplex RS422 transceiver such as MAX490");
-  Serial.println("Angle output is rounded to 0.1 degree");
-  Serial.println();
+  debugPrintlnEmpty();
+  debugPrintln("Rohde & Schwarz RD130 SSI encoder diagnosis started");
+  debugPrintln("Library: TWK_KBE58_SSI");
+  debugPrintln("License: GPLv3 or later");
+  debugPrintln("Encoder: TWK KBE 58 - K 4096 G K E06, Gray SSI");
+  debugPrintln("Default clock pin: IO8 -> RS422 driver input");
+  debugPrintln("Default data  pin: IO9 <- RS422 receiver output");
+  debugPrintln("3.3 V boards: ADM3490ARZ can be used");
+  debugPrintln("5 V boards: use a 5 V full duplex RS422 transceiver such as MAX490");
+  debugPrintln("Angle output is rounded to 0.1 degree");
+
+#if defined(ESP32)
+  debugPrintln("ESP32 detected: output is sent to Serial and Serial0");
+#else
+  debugPrintln("Non-ESP32 board detected: output is sent to Serial only");
+#endif
+
+  debugPrintlnEmpty();
 }
+
+// ------------------------------------------------------------
+// Arduino setup
+// ------------------------------------------------------------
 
 void setup()
 {
-  // Start the serial console.
-  Serial.begin(115200);
+  // Start serial output.
+  debugBegin(115200);
 
   // Give boards with native USB some time after reset.
   delay(3000);
@@ -130,39 +227,43 @@ void setup()
   printStartupInfo();
 }
 
+// ------------------------------------------------------------
+// Arduino loop
+// ------------------------------------------------------------
+
 void loop()
 {
   // Read all currently available diagnostic values from the library.
   TWK_KBE58_SSI::Reading reading = encoder.read();
 
   // Print DATA idle level.
-  Serial.print("DATA-Idle: ");
-  Serial.print(reading.dataIdleLevel);
+  debugPrint("DATA-Idle: ");
+  debugPrintInt(reading.dataIdleLevel);
 
   // Print complete SSI raw value.
-  Serial.print(" | Raw: 0b");
-  printBinary(reading.rawValue, encoder.totalClocks());
+  debugPrint(" | Raw: 0b");
+  debugPrintBinary(reading.rawValue, encoder.totalClocks());
 
   // Print trailing bits.
-  Serial.print(" | Trailing: ");
-  Serial.print(reading.trailingBits);
+  debugPrint(" | Trailing: ");
+  debugPrintUInt(reading.trailingBits);
 
   // Print extracted Gray value.
-  Serial.print(" | Gray: 0b");
-  printBinary(reading.grayValue, encoder.usefulBits());
+  debugPrint(" | Gray: 0b");
+  debugPrintBinary(reading.grayValue, encoder.usefulBits());
 
   // Print binary encoder position.
-  Serial.print(" | Position: ");
-  Serial.print(reading.position);
+  debugPrint(" | Position: ");
+  debugPrintUInt(reading.position);
 
   // Print maximum position count.
-  Serial.print(" / ");
-  Serial.print(encoder.stepsPerRevolution());
+  debugPrint(" / ");
+  debugPrintUInt(encoder.stepsPerRevolution());
 
   // Print angle rounded to 0.1 degree.
-  Serial.print(" | Angle: ");
-  Serial.print(reading.angleDegRounded, 1);
-  Serial.println(" deg");
+  debugPrint(" | Angle: ");
+  debugPrintFloat(reading.angleDegRounded, 1);
+  debugPrintln(" deg");
 
   // Slow down the serial output.
   delay(200);
