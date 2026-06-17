@@ -1,6 +1,20 @@
-# TWK_KBE58_SSI Arduino and ESP32 Library for Rohde & Schwarz RD130
+# TWK_KBE58_SSI Unofficial Arduino and ESP32 Library for Rohde & Schwarz RD130
 
 Code for the `TWK_KBE58_SSI` Arduino library.
+
+## Unofficial Project Disclaimer
+
+This is an unofficial, independent open source project.
+
+This project is not developed, published, approved, endorsed, sponsored or supported by Rohde & Schwarz.
+
+There is no partnership, cooperation or official relationship between this project and Rohde & Schwarz.
+
+The names "Rohde & Schwarz", "R&S" and "RD130" are used only to identify the equipment this library was developed and tested for.
+
+All trademarks, product names and company names belong to their respective owners.
+
+## Description
 
 This library reads the SSI absolute encoder inside a Rohde & Schwarz RD130 rotor.
 
@@ -180,6 +194,7 @@ Motor connector:
 
 ```text
 Important notes:
+- This is an unofficial project and is not affiliated with Rohde & Schwarz.
 - Never connect CLOCK+/CLOCK- or DATA+/DATA- directly to Arduino or ESP32 GPIO pins.
 - Use the ADM3490ARZ for 3.3 V boards or another suitable full duplex RS422 transceiver.
 - For 5 V Arduino boards, use a 5 V full duplex RS422 transceiver such as the MAX490.
