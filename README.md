@@ -50,6 +50,55 @@ Never connect these differential encoder signals directly to Arduino, ESP32 or o
 
 A suitable full duplex RS422 transceiver is required.
 
+## Ready-Made RS422 Module for Testing
+
+For a quick test setup, you can use a ready-made RS422 TTL full duplex module.
+
+Search for:
+
+```text
+MAX490 RS422 TTL Full Duplex Modul
+```
+
+A module based on the MAX490 usually provides one differential driver and one differential receiver. This is suitable for the SSI interface because the microcontroller must send the SSI clock to the encoder and receive the SSI data from the encoder at the same time.
+
+Typical module pin names:
+
+```text
+TTL side:
+VCC
+GND
+TXD or DI
+RXD or RO
+
+RS422 side:
+TX+
+TX-
+RX+
+RX-
+```
+
+Typical connection to the RD130 encoder:
+
+```text
+Microcontroller clock output -> TXD / DI
+
+TX+ -> RD130 data connector pin 2 CLOCK IN+
+TX- -> RD130 data connector pin 3 CLOCK IN-
+
+RX+ -> RD130 data connector pin 4 DATA OUT+
+RX- -> RD130 data connector pin 5 DATA OUT-
+
+RXD / RO -> Microcontroller data input
+GND      -> Microcontroller GND and RD130 data connector pin 6 GND
+```
+
+For 5 V Arduino boards, a MAX490 module is a practical choice because it is intended for 5 V logic.
+
+For ESP32 or other 3.3 V boards, check the module carefully. Many MAX490 modules use 5 V logic and are not directly compatible with 3.3 V GPIO pins. For 3.3 V boards, use the ADM3490ARZ circuit shown below or a 3.3 V compatible RS422 TTL full duplex module.
+
+Do not use simple MAX485 RS485 modules for this SSI interface. Most MAX485 modules are half duplex and provide only one A/B pair. The SSI encoder needs full duplex operation with two differential pairs: one pair for CLOCK and one pair for DATA.
+
 ## Recommended Transceiver for 3.3 V Boards
 
 For ESP32, ESP32-S3 and other 3.3 V Arduino-compatible boards, the recommended transceiver is:
@@ -134,6 +183,7 @@ Important notes:
 - Never connect CLOCK+/CLOCK- or DATA+/DATA- directly to Arduino or ESP32 GPIO pins.
 - Use the ADM3490ARZ for 3.3 V boards or another suitable full duplex RS422 transceiver.
 - For 5 V Arduino boards, use a 5 V full duplex RS422 transceiver such as the MAX490.
+- For quick tests, search for a ready-made MAX490 RS422 TTL Full Duplex Modul.
 - Connect microcontroller GND, RS422 transceiver GND and encoder 0 V together.
 - Keep CLOCK+/CLOCK- and DATA+/DATA- as twisted or closely coupled pairs.
 - Use a 100 nF decoupling capacitor close to the RS422 transceiver VCC and GND pins.
@@ -146,17 +196,17 @@ Important notes:
 The example sketch prints diagnostic values to the serial console:
 
 ```text
-DATA-Idle: 1 | Rohwert: 0b0110111110110 | Trailing: 0 | Gray: 0b011011111011 | Position: 1197 / 4096 | Winkel: 105.2 Grad
+DATA-Idle: 1 | Raw: 0b0110111110110 | Trailing: 0 | Gray: 0b011011111011 | Position: 1197 / 4096 | Angle: 105.2 deg
 ```
 
 The output contains:
 
 - `DATA-Idle`: logic level on the data input before the SSI telegram starts
-- `Rohwert`: complete SSI raw value
+- `Raw`: complete SSI raw value
 - `Trailing`: trailing bits after the useful data bits
 - `Gray`: extracted Gray code value
 - `Position`: binary position after Gray-to-binary conversion
-- `Winkel`: calculated angle in degrees, rounded to 0.1 degrees
+- `Angle`: calculated angle in degrees, rounded to 0.1 degrees
 
 ## Encoder Resolution
 
