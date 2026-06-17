@@ -1,4 +1,4 @@
-# TWK_KBE58_SSI Arduino and ESP32 Library
+# TWK_KBE58_SSI Arduino and ESP32 Library for Rohde & Schwarz RD130
 
 Code for the `TWK_KBE58_SSI` Arduino library.
 
