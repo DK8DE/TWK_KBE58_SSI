@@ -7,8 +7,10 @@
   rotor. The encoder is assumed to be a TWK KBE 58 - K 4096 G K E06 with Gray
   code, 12 useful position bits and 13 SSI clocks.
 
-  The interface between the ESP32 and the encoder uses one ADM3490ARZ full
-  duplex RS422 transceiver.
+  The interface between the microcontroller and the encoder uses one full duplex
+  RS422 transceiver. For 3.3 V boards such as ESP32, the ADM3490ARZ can be used.
+  For 5 V Arduino boards such as Uno, Nano or Mega, use a 5 V full duplex RS422
+  transceiver such as the MAX490.
 
   Copyright (C) 2026 Joerg Koerner DK8DE
 
@@ -20,7 +22,7 @@
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
   FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-  ADM3490ARZ connection:
+  ADM3490ARZ connection for ESP32 or another 3.3 V board:
 
                    ADM3490ARZ
             +----------------------+
@@ -52,21 +54,25 @@
   6 ---> Filter 2 ground
 
   Important notes:
-  - Never connect CLOCK+/CLOCK- or DATA+/DATA- directly to ESP32 GPIO pins.
-  - Use the ADM3490ARZ or another suitable full duplex RS422 transceiver.
-  - Connect ESP32 GND, ADM3490 GND and encoder 0 V together.
+  - Never connect CLOCK+/CLOCK- or DATA+/DATA- directly to Arduino or ESP32 GPIO pins.
+  - Use the ADM3490ARZ for 3.3 V boards or another suitable full duplex RS422 transceiver.
+  - For 5 V Arduino boards, use a 5 V full duplex RS422 transceiver such as the MAX490.
+  - Connect microcontroller GND, RS422 transceiver GND and encoder 0 V together.
   - Keep CLOCK+/CLOCK- and DATA+/DATA- as twisted or closely coupled pairs.
-  - Use a 100 nF decoupling capacitor close to the ADM3490 VCC and GND pins.
-  - For the DATA pair, a 120 ohm termination close to the ADM3490 receiver is recommended.
+  - Use a 100 nF decoupling capacitor close to the RS422 transceiver VCC and GND pins.
+  - For the DATA pair, a 120 ohm termination close to the receiver is recommended.
+  - For longer CLOCK lines, a 120 ohm termination at the encoder side may be required.
 */
 
 #include <Arduino.h>
 #include <TWK_KBE58_SSI.h>
 
-// ESP32 GPIO connected to ADM3490 DI.
+// Default ESP32-S3 GPIO connected to ADM3490 DI.
+// Change this pin for other Arduino-compatible boards.
 const uint8_t PIN_SSI_CLOCK = 8;
 
-// ESP32 GPIO connected to ADM3490 RO.
+// Default ESP32-S3 GPIO connected to ADM3490 RO.
+// Change this pin for other Arduino-compatible boards.
 const uint8_t PIN_SSI_DATA = 9;
 
 // Encoder configuration for TWK KBE 58 - K 4096 G K E06.
@@ -77,75 +83,38 @@ const uint8_t SSI_TRAILING_BITS = 1;
 // Create the encoder reader object.
 TWK_KBE58_SSI encoder(PIN_SSI_CLOCK, PIN_SSI_DATA, SSI_USEFUL_BITS, SSI_TOTAL_CLOCKS, SSI_TRAILING_BITS);
 
-void printBoth(const char *text)
+void printBinary(uint32_t value, uint8_t bitCount)
 {
-  Serial.print(text);
-  Serial0.print(text);
-}
-
-void printlnBoth(const char *text)
-{
-  Serial.println(text);
-  Serial0.println(text);
-}
-
-void printUIntBoth(uint32_t value)
-{
-  Serial.print(value);
-  Serial0.print(value);
-}
-
-void printIntBoth(int value)
-{
-  Serial.print(value);
-  Serial0.print(value);
-}
-
-void printFloatBoth(float value, uint8_t digits)
-{
-  Serial.print(value, digits);
-  Serial0.print(value, digits);
-}
-
-void printBinaryBoth(uint32_t value, uint8_t bitCount)
-{
+  // Print a fixed-width binary value.
   for (int8_t bit = bitCount - 1; bit >= 0; bit--)
   {
     uint8_t bitValue = (value >> bit) & 1;
     Serial.print(bitValue);
-    Serial0.print(bitValue);
   }
 }
 
 void printStartupInfo()
 {
+  // Print startup information to the serial console.
   Serial.println();
-  Serial0.println();
-
-  printlnBoth("Rohde & Schwarz RD130 SSI encoder diagnosis started");
-  printlnBoth("Library: TWK_KBE58_SSI");
-  printlnBoth("License: GPL");
-  printlnBoth("Encoder: TWK KBE 58 - K 4096 G K E06, Gray SSI");
-  printlnBoth("ESP32 CLOCK GPIO: IO8 -> ADM3490 Pin 3 DI");
-  printlnBoth("ESP32 DATA  GPIO: IO9 <- ADM3490 Pin 2 RO");
-  printlnBoth("ADM3490 Pin 5 Y -> RD130 CLOCK+ / data connector pin 2");
-  printlnBoth("ADM3490 Pin 6 Z -> RD130 CLOCK- / data connector pin 3");
-  printlnBoth("ADM3490 Pin 8 A <- RD130 DATA+  / data connector pin 4");
-  printlnBoth("ADM3490 Pin 7 B <- RD130 DATA-  / data connector pin 5");
-  printlnBoth("Angle output is rounded to 0.1 degree");
+  Serial.println("Rohde & Schwarz RD130 SSI encoder diagnosis started");
+  Serial.println("Library: TWK_KBE58_SSI");
+  Serial.println("License: GPLv3 or later");
+  Serial.println("Encoder: TWK KBE 58 - K 4096 G K E06, Gray SSI");
+  Serial.println("Default clock pin: IO8 -> RS422 driver input");
+  Serial.println("Default data  pin: IO9 <- RS422 receiver output");
+  Serial.println("3.3 V boards: ADM3490ARZ can be used");
+  Serial.println("5 V boards: use a 5 V full duplex RS422 transceiver such as MAX490");
+  Serial.println("Angle output is rounded to 0.1 degree");
   Serial.println();
-  Serial0.println();
 }
 
 void setup()
 {
-  // Serial is used for native USB CDC on many ESP32-S3 boards.
+  // Start the serial console.
   Serial.begin(115200);
 
-  // Serial0 is used for the UART0 USB bridge on many ESP32-S3 boards.
-  Serial0.begin(115200);
-
-  // Give the PC time to open the USB serial port after reset.
+  // Give boards with native USB some time after reset.
   delay(3000);
 
   // Initialize the encoder pins.
@@ -157,6 +126,7 @@ void setup()
   encoder.setClockIdleHigh(true);
   encoder.setInvertData(false);
 
+  // Print information about the example and hardware connection.
   printStartupInfo();
 }
 
@@ -165,27 +135,35 @@ void loop()
   // Read all currently available diagnostic values from the library.
   TWK_KBE58_SSI::Reading reading = encoder.read();
 
-  printBoth("DATA-Idle: ");
-  printIntBoth(reading.dataIdleLevel);
+  // Print DATA idle level.
+  Serial.print("DATA-Idle: ");
+  Serial.print(reading.dataIdleLevel);
 
-  printBoth(" | Raw: 0b");
-  printBinaryBoth(reading.rawValue, encoder.totalClocks());
+  // Print complete SSI raw value.
+  Serial.print(" | Raw: 0b");
+  printBinary(reading.rawValue, encoder.totalClocks());
 
-  printBoth(" | Trailing: ");
-  printUIntBoth(reading.trailingBits);
+  // Print trailing bits.
+  Serial.print(" | Trailing: ");
+  Serial.print(reading.trailingBits);
 
-  printBoth(" | Gray: 0b");
-  printBinaryBoth(reading.grayValue, encoder.usefulBits());
+  // Print extracted Gray value.
+  Serial.print(" | Gray: 0b");
+  printBinary(reading.grayValue, encoder.usefulBits());
 
-  printBoth(" | Position: ");
-  printUIntBoth(reading.position);
+  // Print binary encoder position.
+  Serial.print(" | Position: ");
+  Serial.print(reading.position);
 
-  printBoth(" / ");
-  printUIntBoth(encoder.stepsPerRevolution());
+  // Print maximum position count.
+  Serial.print(" / ");
+  Serial.print(encoder.stepsPerRevolution());
 
-  printBoth(" | Angle: ");
-  printFloatBoth(reading.angleDegRounded, 1);
-  printlnBoth(" deg");
+  // Print angle rounded to 0.1 degree.
+  Serial.print(" | Angle: ");
+  Serial.print(reading.angleDegRounded, 1);
+  Serial.println(" deg");
 
+  // Slow down the serial output.
   delay(200);
 }
