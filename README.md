@@ -225,14 +225,22 @@ Important notes:
 
 The library supports three SSI read modes plus an optional ESP32 background task:
 
-| Mode | Boards | Clock pulses | API |
-|------|--------|--------------|-----|
-| BitBang | All Arduino-compatible | Exactly 13 | `begin()` / `beginBitBang()` |
-| Portable Arduino SPI | Arduino AVR, ESP32 | Usually 16 (use `setSpiRightShift(3)`) | `beginSPI(...)` |
-| ESP32 precise SPI | ESP32 only | Exactly 13 | `beginESP32PreciseSPI(...)` |
-| Background read (ESP32) | ESP32 only | Depends on active mode | `startBackgroundRead(...)` |
+| Mode | Boards | Clock pulses | API | Example sketch |
+|------|--------|--------------|-----|----------------|
+| BitBang | All Arduino-compatible | Exactly 13 | `begin()` / `beginBitBang()` | `RD130_BitBang`, `RD130_ADM3490_Diagnose` |
+| Portable Arduino SPI | Arduino AVR, ESP32 | Usually 16 (use `setSpiRightShift(3)`) | `beginSPI(...)` | `RD130_ArduinoSPI` |
+| ESP32 precise SPI | ESP32 only | Exactly 13 | `beginESP32PreciseSPI(...)` | — |
+| Background read + BitBang | ESP32 only | Exactly 13 | `startBackgroundRead(...)` after `beginBitBang()` | `RD130_ESP32_Background` |
+| Background read + ESP32 precise SPI | ESP32 only | Exactly 13 | `startBackgroundRead(...)` after `beginESP32PreciseSPI(...)` | `RD130_ESP32_SPI_Background` |
 
 SSI is not a continuous PWM-like clock. The clock is generated only during a read telegram and must be followed by a frame pause.
+
+Quick selection guide:
+
+- **Arduino Uno / Nano / Mega:** BitBang or portable Arduino SPI with MAX490
+- **ESP32 / ESP32-S3:** BitBang, portable Arduino SPI (FSPI), ESP32 precise SPI, or either background example
+- **Exactly 13 SSI clocks on scope:** BitBang, ESP32 precise SPI, or background examples (not portable Arduino SPI without bit shifting)
+- **Non-blocking read on ESP32:** `RD130_ESP32_Background` (BitBang) or `RD130_ESP32_SPI_Background` (hardware SPI via ESP-IDF)
 
 ### Reading Structure
 
@@ -341,6 +349,8 @@ encoder.setRawBitShift(0);   // optional fine tuning of raw bit alignment
 ```
 
 Use this mode when portable Arduino SPI produces too many clock edges or unstable raw values on ESP32.
+
+Example sketch for background use: `examples/RD130_ESP32_SPI_Background`.
 
 ### ESP32 Background Read
 
