@@ -2,18 +2,6 @@
 
 Code for the `TWK_KBE58_SSI` Arduino library.
 
-## Unofficial Project Disclaimer
-
-This is an unofficial, independent open source project.
-
-This project is not developed, published, approved, endorsed, sponsored or supported by Rohde & Schwarz.
-
-There is no partnership, cooperation or official relationship between this project and Rohde & Schwarz.
-
-The names "Rohde & Schwarz", "R&S" and "RD130" are used only to identify the equipment this library was developed and tested for.
-
-All trademarks, product names and company names belong to their respective owners.
-
 ## Description
 
 This library reads the SSI absolute encoder inside a Rohde & Schwarz RD130 rotor.
@@ -26,14 +14,18 @@ The encoder is assumed to be a TWK KBE 58 - K 4096 G K E06 with:
 - 4096 positions per revolution
 - Single-turn absolute position
 
-The library reads and provides:
+The library reads and provides a `Reading` structure with:
 
 - SSI raw value
 - Gray value
 - Binary position
 - DATA idle level
 - Trailing bits
-- Angle in degrees
+- Angle in degrees (full precision and rounded to 0.1 degrees)
+- `valid` flag (false during startup discard or after failed reads)
+- `readCounter` and `errorCounter` statistics
+
+Always check `reading.valid` before using position or angle values. The example sketches ignore invalid readings during startup.
 
 The angle output can be rounded to 0.1 degrees in the example sketch.
 
@@ -137,8 +129,31 @@ The MAX490 is suitable for 5 V logic and provides one differential driver and on
 
 Typical use with 5 V Arduino boards:
 
-- Arduino digital output -> MAX490 driver input -> CLOCK+/CLOCK-
-- DATA+/DATA- -> MAX490 receiver input -> Arduino digital input
+- Arduino digital output -> MAX490 driver input -> CLOCK+ and CLOCK-
+- DATA+ and DATA- -> MAX490 receiver input -> Arduino digital input
+
+Typical MAX490 module wiring for Arduino Uno, Nano or Mega:
+
+```text
+                 MAX490
+          +----------------------+
+ +5V  ----| VCC              TX+ |---- CLOCK+ -> Encoder Pin 2
+ D13 ----| DI               TX- |---- CLOCK- -> Encoder Pin 3
+ D12 ----| RO               RX+ |---- DATA+  -> Encoder Pin 4
+ GND  ----| GND              RX- |---- DATA-  -> Encoder Pin 5
+          +----------------------+
+          DE and RE tied for always-on transmit and receive.
+```
+
+BitBang example pins on Uno or Nano: D8 = clock, D9 = data.
+
+Hardware SPI on classic Arduino boards:
+
+```text
+Uno / Nano:  D13 = SCK, D12 = MISO, D10 = SS (OUTPUT, HIGH)
+Mega 2560:   D52 = SCK, D50 = MISO, D53 = SS (OUTPUT, HIGH)
+MOSI is not used for SSI.
+```
 
 If a 3.3 V RS422 transceiver is used with a 5 V Arduino board, proper level shifting is required.
 
@@ -147,10 +162,10 @@ If a 3.3 V RS422 transceiver is used with a 5 V Arduino board, proper level shif
 ```text
                  ADM3490ARZ
           +----------------------+
- +3V3 ----| 1 VCC            A 8 |---- DATA+  -> Encoder Pin 3
- IO9  <---| 2 RO             B 7 |---- DATA-  -> Encoder Pin 4
- IO8  --->| 3 DI             Z 6 |---- CLOCK- -> Encoder Pin 2
- GND  ----| 4 GND            Y 5 |---- CLOCK+ -> Encoder Pin 1
+ +3V3 ----| 1 VCC            A 8 |---- DATA+  -> Encoder Pin 4
+ IO9  ----| 2 RO             B 7 |---- DATA-  -> Encoder Pin 5
+ IO8  ----| 3 DI             Z 6 |---- CLOCK- -> Encoder Pin 3
+ GND  ----| 4 GND            Y 5 |---- CLOCK+ -> Encoder Pin 2
           +----------------------+
 ```
 
@@ -208,13 +223,51 @@ Important notes:
 
 ## Reading Modes
 
-The library supports three reading modes:
+The library supports three SSI read modes plus an optional ESP32 background task:
 
-1. **BitBang mode** (default)
-2. **Portable Arduino SPI mode**
-3. **ESP32 precise SPI / background mode**
+| Mode | Boards | Clock pulses | API |
+|------|--------|--------------|-----|
+| BitBang | All Arduino-compatible | Exactly 13 | `begin()` / `beginBitBang()` |
+| Portable Arduino SPI | Arduino AVR, ESP32 | Usually 16 (use `setSpiRightShift(3)`) | `beginSPI(...)` |
+| ESP32 precise SPI | ESP32 only | Exactly 13 | `beginESP32PreciseSPI(...)` |
+| Background read (ESP32) | ESP32 only | Depends on active mode | `startBackgroundRead(...)` |
 
 SSI is not a continuous PWM-like clock. The clock is generated only during a read telegram and must be followed by a frame pause.
+
+### Reading Structure
+
+```cpp
+TWK_KBE58_SSI::Reading reading = encoder.read();
+
+if (reading.valid)
+{
+  Serial.println(reading.position);
+  Serial.println(reading.angleDegRounded, 1);
+}
+```
+
+Fields:
+
+- `dataIdleLevel`, `rawValue`, `grayValue`, `position`, `trailingBits`
+- `stepsPerRevolution` (4096 for the default encoder)
+- `angleDeg`, `angleDegRounded`
+- `valid` — false for discarded startup reads or failed transfers
+- `readCounter`, `errorCounter`
+
+### Startup Warmup and Discard
+
+After `begin*()`, the library performs silent warmup reads and marks the first user-visible reads as invalid (`valid = false`) so startup noise does not appear as real position jumps:
+
+- **BitBang on ESP32:** 1 warmup, 1 discarded read
+- **Arduino SPI on AVR (Uno, Nano, Mega):** 2 warmup, 2 discarded reads
+- **Arduino SPI on ESP32:** 1 warmup, 1 discarded read
+- **ESP32 precise SPI:** 1 warmup, 1 discarded read
+
+Override with:
+
+```cpp
+encoder.setStartupDiscardCount(0);
+```
 
 ### BitBang Mode
 
@@ -231,10 +284,13 @@ Advantages:
 - Exactly 13 SSI clock pulses
 - No SPI pin binding
 - Good diagnostic mode
+- Used by `RD130_BitBang`, `RD130_ADM3490_Diagnose` and `RD130_ESP32_Background`
+
+Timing defaults: `setHalfPeriodUs(5)`, `setFramePauseUs(80)`.
 
 ### Portable Arduino SPI Mode
 
-Arduino SPI mode uses the standard Arduino `SPI` library and can be used on Arduino and ESP32 boards.
+Arduino SPI mode uses the standard Arduino `SPI` library on **5 V AVR boards** (Uno, Nano, Mega) and on **ESP32** boards.
 
 ```cpp
 #include <SPI.h>
@@ -256,8 +312,13 @@ encoder.beginSPI(ssiSPI, PIN_SSI_CLOCK, PIN_SSI_DATA, 100000);
 On classic Arduino boards, keep SS as output so SPI stays in master mode:
 
 ```cpp
-encoder.setSpiDummySsPin(10);
+encoder.setSpiDummySsPin(10);   // Uno / Nano: D10
+// Mega 2560: D53
 ```
+
+On AVR boards the library uses the board default `SCK`, `MISO` and `SS` symbols.
+
+The `RD130_ArduinoSPI` example reads continuously so SCK pulses stay visible on a scope and prints to Serial every 200 ms.
 
 **Important:** Portable Arduino SPI usually generates 16 clock pulses. The library discards the unused bits with `setSpiRightShift(3)`. For strict 13-clock SSI operation, use BitBang mode or ESP32 precise SPI mode.
 
@@ -265,53 +326,144 @@ Test `SPI_MODE0` through `SPI_MODE3` on your hardware. With clock idle high, sta
 
 Example sketch: `examples/RD130_ArduinoSPI`
 
-### ESP32 Precise SPI / Background Mode
+### ESP32 Precise SPI Mode
 
-ESP32 precise SPI mode uses the ESP-IDF SPI API and can generate exactly 13 SSI clock pulses.
+ESP32 precise SPI mode uses the ESP-IDF SPI master API directly (not `SPIClass`) and generates exactly 13 SSI clock pulses.
 
 ```cpp
-encoder.beginESP32PreciseSPI(PIN_SSI_CLOCK, PIN_SSI_DATA, 100000);
+if (!encoder.beginESP32PreciseSPI(PIN_SSI_CLOCK, PIN_SSI_DATA, 100000))
+{
+  Serial.println("ESP32 precise SPI init failed");
+}
+
 encoder.setSpiMode(SPI_MODE2);
+encoder.setRawBitShift(0);   // optional fine tuning of raw bit alignment
 ```
 
-Optional background read with FreeRTOS:
+Use this mode when portable Arduino SPI produces too many clock edges or unstable raw values on ESP32.
+
+### ESP32 Background Read
+
+On ESP32, a FreeRTOS task can read the encoder in the background while `loop()` stays free. The task works with whichever read mode is active (`beginBitBang()`, `beginSPI()` or `beginESP32PreciseSPI()`).
+
+The shipped example `RD130_ESP32_Background` uses **BitBang** because it is proven on the RD130 hardware and produces exactly 13 SSI clocks:
 
 ```cpp
-encoder.startBackgroundRead(20);   // read every 20 ms on core 1
+encoder.beginBitBang();
+encoder.setHalfPeriodUs(5);
+encoder.setFramePauseUs(80);
+
+encoder.startBackgroundRead(10);   // interval in ms, optional core argument
 
 if (encoder.hasNewReading())
 {
   TWK_KBE58_SSI::Reading reading = encoder.getLastReading();
+
+  if (reading.valid)
+  {
+    // use reading.position, reading.angleDegRounded, ...
+  }
 }
+
+encoder.stopBackgroundRead();      // optional cleanup
+```
+
+Additional ESP32-only helpers:
+
+```cpp
+encoder.getReadCounter();
+encoder.getErrorCounter();
 ```
 
 Example sketches:
 
-- `examples/RD130_BitBang`
-- `examples/RD130_ArduinoSPI`
-- `examples/RD130_ESP32_Background`
-- `examples/RD130_ADM3490_Diagnose` (BitBang diagnosis)
+- `examples/RD130_BitBang` — minimal BitBang
+- `examples/RD130_ArduinoSPI` — portable SPI on Uno, Mega or ESP32
+- `examples/RD130_ESP32_Background` — BitBang with FreeRTOS background read
+- `examples/RD130_ADM3490_Diagnose` — BitBang with full serial diagnosis
+
+Each example contains the full RD130 wiring notes (ADM3490, MAX490, connector pinout) in the sketch header comment.
+
+### Configuration Reference
+
+Common settings for all modes:
+
+```cpp
+encoder.setHalfPeriodUs(5);
+encoder.setFramePauseUs(80);
+encoder.setClockIdleHigh(true);
+encoder.setInvertData(false);
+encoder.setStartupDiscardCount(1);
+```
+
+SPI-specific settings:
+
+```cpp
+encoder.setSpiFrequency(100000);
+encoder.setSpiMode(SPI_MODE2);
+encoder.setSpiTransferBits(16);
+encoder.setSpiRightShift(3);
+encoder.setSpiDummySsPin(10);
+```
+
+Low-level access:
+
+```cpp
+uint32_t raw = encoder.readRaw();
+uint32_t binary = encoder.grayToBinary(grayValue);
+TWK_KBE58_SSI::Mode mode = encoder.mode();
+```
 
 ## PlatformIO Build
 
-Each example includes its own `platformio.ini`. Build from the example directory:
+Library version **1.1.1**.
+
+### Root project (default: Diagnose example on ESP32)
 
 ```powershell
-pio run -d examples/RD130_BitBang -e uno
-pio run -d examples/RD130_ArduinoSPI -e mega2560
-pio run -d examples/RD130_ArduinoSPI -e esp32dev
-pio run -d examples/RD130_ESP32_Background -e esp32-s3-devkitc-1
-pio run -d examples/RD130_ADM3490_Diagnose -e esp32-s3-devkitc-1
+cd TWK_KBE58_SSI
+pio run -e esp32-s3-diagnose
+pio run -e esp32dev-diagnose
+```
+
+### Individual examples
+
+Each example has its own `platformio.ini`. Build from the example directory:
+
+```powershell
+cd examples/RD130_BitBang
+pio run -e uno
+pio run -e esp32-s3-devkitc-1
+
+cd ../RD130_ArduinoSPI
+pio run -e uno
+pio run -e mega2560
+pio run -e esp32dev
+
+cd ../RD130_ESP32_Background
+pio run -e esp32-s3-devkitc-1
+pio run -e esp32dev
+
+cd ../RD130_ADM3490_Diagnose
+pio run -e esp32-s3-devkitc-1
+```
+
+Upload and monitor (example: Arduino Uno on COM20):
+
+```powershell
+cd examples/RD130_ArduinoSPI
+pio run -e uno -t upload --upload-port COM20
+pio device monitor -p COM20 -b 115200
 ```
 
 ## Hardware Validation
 
 After wiring the encoder and RS422 transceiver, verify each mode:
 
-1. **BitBang** — position 0…4095 and angle 0.0…359.9 change plausibly when rotating
-2. **Arduino SPI** — test `SPI_MODE0`…`SPI_MODE3` and `setSpiRightShift(0…3)`; choose stable settings
-3. **ESP32 precise SPI** — compare raw values with BitBang mode
-4. **Background read** — `hasNewReading()` updates regularly while `loop()` stays free
+1. **BitBang** — position 0…4095 and angle 0.0…359.9 change plausibly when rotating; skip the first invalid startup reads
+2. **Arduino SPI (Uno / Mega / ESP32)** — test `SPI_MODE0`…`SPI_MODE3` and `setSpiRightShift(0…3)`; choose stable settings; AVR discards the first two user reads after `beginSPI()`
+3. **ESP32 precise SPI** — compare raw values with BitBang mode; exactly 13 clock pulses on the scope
+4. **Background read** — `hasNewReading()` updates regularly while `loop()` stays free; example uses BitBang at 10 ms interval
 
 ## Example Output
 
@@ -347,6 +499,18 @@ This means:
 3072   -> 270.0 degrees
 4095   -> just below 360.0 degrees
 ```
+
+## Unofficial Project Disclaimer
+
+This is an unofficial, independent open source project.
+
+This project is not developed, published, approved, endorsed, sponsored or supported by Rohde & Schwarz.
+
+There is no partnership, cooperation or official relationship between this project and Rohde & Schwarz.
+
+The names "Rohde & Schwarz", "R&S" and "RD130" are used only to identify the equipment this library was developed and tested for.
+
+All trademarks, product names and company names belong to their respective owners.
 
 ## License
 
