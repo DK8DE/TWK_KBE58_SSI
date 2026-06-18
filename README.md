@@ -136,12 +136,12 @@ Typical MAX490 module wiring for Arduino Uno, Nano or Mega:
 
 ```text
                  MAX490
-          +----------------------+
- +5V  ----| VCC              TX+ |---- CLOCK+ -> Encoder Pin 2
+         +----------------------+
+ +5V ----| VCC              TX+ |---- CLOCK+ -> Encoder Pin 2
  D13 ----| DI               TX- |---- CLOCK- -> Encoder Pin 3
  D12 ----| RO               RX+ |---- DATA+  -> Encoder Pin 4
- GND  ----| GND              RX- |---- DATA-  -> Encoder Pin 5
-          +----------------------+
+ GND ----| GND              RX- |---- DATA-  -> Encoder Pin 5
+         +----------------------+
           DE and RE tied for always-on transmit and receive.
 ```
 

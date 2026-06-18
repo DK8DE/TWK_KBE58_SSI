@@ -38,12 +38,12 @@
   MAX490 connection for Arduino Uno, Nano or Mega (5 V):
 
                    MAX490
-            +----------------------+
-   +5V  ----| VCC              TX+ |---- CLOCK+ ---- Encoder Pin 2
-   D13 ----| DI               TX- |---- CLOCK- ---- Encoder Pin 3
-   D12 ----| RO               RX+ |---- DATA+  ---- Encoder Pin 4
-   GND  ----| GND              RX- |---- DATA-  ---- Encoder Pin 5
-            +----------------------+
+         +----------------------+
+ +5V ----| VCC              TX+ |---- CLOCK+ -> Encoder Pin 2
+ D13 ----| DI               TX- |---- CLOCK- -> Encoder Pin 3
+ D12 ----| RO               RX+ |---- DATA+  -> Encoder Pin 4
+ GND ----| GND              RX- |---- DATA-  -> Encoder Pin 5
+         +----------------------+
             DE and RE tied for always-on transmit and receive.
 
   Arduino Uno or Nano (BitBang example pins D8 and D9):
