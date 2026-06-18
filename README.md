@@ -441,7 +441,7 @@ TWK_KBE58_SSI::Mode mode = encoder.mode();
 
 ## PlatformIO Build
 
-Library version **1.1.1**.
+Library version **1.2.0**.
 
 ### Root project (default: Diagnose example on ESP32)
 
