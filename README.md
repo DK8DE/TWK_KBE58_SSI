@@ -284,7 +284,7 @@ Advantages:
 - Exactly 13 SSI clock pulses
 - No SPI pin binding
 - Good diagnostic mode
-- Used by `RD130_BitBang`, `RD130_ADM3490_Diagnose` and `RD130_ESP32_Background`
+- Used by `RD130_BitBang`, `RD130_ADM3490_Diagnose` and `RD130_ESP32_Background` (BitBang)
 
 Timing defaults: `setHalfPeriodUs(5)`, `setFramePauseUs(80)`.
 
@@ -346,15 +346,29 @@ Use this mode when portable Arduino SPI produces too many clock edges or unstabl
 
 On ESP32, a FreeRTOS task can read the encoder in the background while `loop()` stays free. The task works with whichever read mode is active (`beginBitBang()`, `beginSPI()` or `beginESP32PreciseSPI()`).
 
-The shipped example `RD130_ESP32_Background` uses **BitBang** because it is proven on the RD130 hardware and produces exactly 13 SSI clocks:
+Two background examples are provided:
+
+**BitBang** — `RD130_ESP32_Background`:
 
 ```cpp
 encoder.beginBitBang();
 encoder.setHalfPeriodUs(5);
 encoder.setFramePauseUs(80);
+encoder.startBackgroundRead(10);
+```
 
-encoder.startBackgroundRead(10);   // interval in ms, optional core argument
+**ESP32 precise SPI** — `RD130_ESP32_SPI_Background`:
 
+```cpp
+encoder.beginESP32PreciseSPI(PIN_SSI_CLOCK, PIN_SSI_DATA, 100000);
+encoder.setSpiMode(SPI_MODE2);
+encoder.setFramePauseUs(80);
+encoder.startBackgroundRead(10);
+```
+
+Common background API:
+
+```cpp
 if (encoder.hasNewReading())
 {
   TWK_KBE58_SSI::Reading reading = encoder.getLastReading();
@@ -380,6 +394,7 @@ Example sketches:
 - `examples/RD130_BitBang` — minimal BitBang
 - `examples/RD130_ArduinoSPI` — portable SPI on Uno, Mega or ESP32
 - `examples/RD130_ESP32_Background` — BitBang with FreeRTOS background read
+- `examples/RD130_ESP32_SPI_Background` — ESP32 precise SPI with FreeRTOS background read
 - `examples/RD130_ADM3490_Diagnose` — BitBang with full serial diagnosis
 
 Each example contains the full RD130 wiring notes (ADM3490, MAX490, connector pinout) in the sketch header comment.
@@ -444,6 +459,10 @@ cd ../RD130_ESP32_Background
 pio run -e esp32-s3-devkitc-1
 pio run -e esp32dev
 
+cd ../RD130_ESP32_SPI_Background
+pio run -e esp32-s3-devkitc-1
+pio run -e esp32dev
+
 cd ../RD130_ADM3490_Diagnose
 pio run -e esp32-s3-devkitc-1
 ```
@@ -463,7 +482,7 @@ After wiring the encoder and RS422 transceiver, verify each mode:
 1. **BitBang** — position 0…4095 and angle 0.0…359.9 change plausibly when rotating; skip the first invalid startup reads
 2. **Arduino SPI (Uno / Mega / ESP32)** — test `SPI_MODE0`…`SPI_MODE3` and `setSpiRightShift(0…3)`; choose stable settings; AVR discards the first two user reads after `beginSPI()`
 3. **ESP32 precise SPI** — compare raw values with BitBang mode; exactly 13 clock pulses on the scope
-4. **Background read** — `hasNewReading()` updates regularly while `loop()` stays free; example uses BitBang at 10 ms interval
+4. **Background read** — `hasNewReading()` updates regularly while `loop()` stays free; compare BitBang (`RD130_ESP32_Background`) and ESP32 precise SPI (`RD130_ESP32_SPI_Background`) at 10 ms interval
 
 ## Example Output
 

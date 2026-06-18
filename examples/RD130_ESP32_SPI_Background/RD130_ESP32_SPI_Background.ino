@@ -1,12 +1,11 @@
 /*
-  RD130_ESP32_Background.ino
+  RD130_ESP32_SPI_Background.ino
 
-  ESP32 background read example for the TWK_KBE58_SSI library (BitBang).
+  ESP32 background read example for the TWK_KBE58_SSI library.
 
-  Uses BitBang mode because it is simple and generates exactly 13 SSI clock pulses.
-  A FreeRTOS task reads the encoder in the background; loop() prints results.
-
-  For ESP32 precise SPI with background read, see RD130_ESP32_SPI_Background.
+  Uses ESP32 precise SPI (ESP-IDF SPI master) so exactly 13 SSI clock pulses
+  are generated. A FreeRTOS task reads the encoder in the background;
+  loop() prints results.
 
   This example reads the SSI absolute encoder inside a Rohde & Schwarz RD130
   rotor. The encoder is assumed to be a TWK KBE 58 - K 4096 G K E06 with Gray
@@ -68,7 +67,7 @@
     D53 (SS)   kept OUTPUT HIGH for SPI master mode
     D51 (MOSI) not connected for SSI
 
-  ESP32 or ESP32-S3 (BitBang or SPI with FSPI, example pins):
+  ESP32 or ESP32-S3 (BitBang or SPI, example pins):
 
     IO8  -> ADM3490 DI  -> encoder CLOCK+ and CLOCK-
     IO9  <- ADM3490 RO  <- encoder DATA+ and DATA-
@@ -110,8 +109,21 @@
 
 const uint8_t PIN_SSI_CLOCK = 8;
 const uint8_t PIN_SSI_DATA = 9;
+const uint32_t BACKGROUND_INTERVAL_MS = 10;
+const uint32_t SPI_FREQUENCY_HZ = 100000;
 
 TWK_KBE58_SSI encoder(PIN_SSI_CLOCK, PIN_SSI_DATA);
+
+void printReading(const TWK_KBE58_SSI::Reading &reading, Stream &out)
+{
+  out.print("Position: ");
+  out.print(reading.position);
+  out.print(" / ");
+  out.print(reading.stepsPerRevolution);
+  out.print(" Angle: ");
+  out.print(reading.angleDegRounded, 1);
+  out.println(" deg");
+}
 
 void setup()
 {
@@ -119,27 +131,34 @@ void setup()
 
 #if defined(ESP32)
   Serial0.begin(115200);
-#endif
 
-  encoder.beginBitBang();
-  encoder.setHalfPeriodUs(5);
-  encoder.setFramePauseUs(80);
-
-#if defined(ESP32)
-  if (!encoder.startBackgroundRead(10))
+  if (!encoder.beginESP32PreciseSPI(PIN_SSI_CLOCK, PIN_SSI_DATA, SPI_FREQUENCY_HZ))
   {
-    Serial.println("Background read start failed");
-#if defined(ESP32)
-    Serial0.println("Background read start failed");
-#endif
+    Serial.println("ESP32 precise SPI init failed");
+    Serial0.println("ESP32 precise SPI init failed");
     while (true)
     {
       delay(1000);
     }
   }
 
-  Serial.println("RD130 background read started (BitBang, 10 ms)");
-  Serial0.println("RD130 background read started (BitBang, 10 ms)");
+  encoder.setSpiMode(SPI_MODE2);
+  encoder.setFramePauseUs(80);
+
+  if (!encoder.startBackgroundRead(BACKGROUND_INTERVAL_MS))
+  {
+    Serial.println("Background read start failed");
+    Serial0.println("Background read start failed");
+    while (true)
+    {
+      delay(1000);
+    }
+  }
+
+  Serial.println("RD130 background read started (ESP32 precise SPI, 10 ms)");
+  Serial0.println("RD130 background read started (ESP32 precise SPI, 10 ms)");
+#else
+  Serial.println("This example requires an ESP32 board.");
 #endif
 }
 
@@ -155,23 +174,10 @@ void loop()
       return;
     }
 
-    Serial.print("Position: ");
-    Serial.print(reading.position);
-    Serial.print(" / ");
-    Serial.print(reading.stepsPerRevolution);
-    Serial.print(" Angle: ");
-    Serial.print(reading.angleDegRounded, 1);
-    Serial.println(" deg");
-
-    Serial0.print("Position: ");
-    Serial0.print(reading.position);
-    Serial0.print(" Angle: ");
-    Serial0.print(reading.angleDegRounded, 1);
-    Serial0.println(" deg");
+    printReading(reading, Serial);
+    printReading(reading, Serial0);
   }
 #else
-  TWK_KBE58_SSI::Reading reading = encoder.read();
-  Serial.println(reading.angleDegRounded, 1);
-  delay(200);
+  delay(1000);
 #endif
 }
