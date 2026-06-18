@@ -185,8 +185,8 @@ Motor connector:
 1 ---> Motor 1 +
 2 ---> Motor 1 -
 3 ---> Filter 1 ground
-4 ---> Motor 1 -
-5 ---> Motor 1 +
+4 ---> Motor 2 -
+5 ---> Motor 2 +
 6 ---> Filter 2 ground
 ```
 
