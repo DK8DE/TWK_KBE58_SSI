@@ -229,7 +229,7 @@ The library supports three SSI read modes plus an optional ESP32 background task
 |------|--------|--------------|-----|----------------|
 | BitBang | All Arduino-compatible | Exactly 13 | `begin()` / `beginBitBang()` | `RD130_BitBang`, `RD130_ADM3490_Diagnose` |
 | Portable Arduino SPI | Arduino AVR, ESP32 | Usually 16 (use `setSpiRightShift(3)`) | `beginSPI(...)` | `RD130_ArduinoSPI` |
-| ESP32 precise SPI | ESP32 only | Exactly 13 | `beginESP32PreciseSPI(...)` | — |
+| ESP32 precise SPI | ESP32 only | Exactly 13 | `beginESP32PreciseSPI(...)` | `RD130_ESP32_PreciseSPI` |
 | Background read + BitBang | ESP32 only | Exactly 13 | `startBackgroundRead(...)` after `beginBitBang()` | `RD130_ESP32_Background` |
 | Background read + ESP32 precise SPI | ESP32 only | Exactly 13 | `startBackgroundRead(...)` after `beginESP32PreciseSPI(...)` | `RD130_ESP32_SPI_Background` |
 
@@ -350,7 +350,8 @@ encoder.setRawBitShift(0);   // optional fine tuning of raw bit alignment
 
 Use this mode when portable Arduino SPI produces too many clock edges or unstable raw values on ESP32.
 
-Example sketch for background use: `examples/RD130_ESP32_SPI_Background`.
+Example sketch: `examples/RD130_ESP32_PreciseSPI`  
+Background variant: `examples/RD130_ESP32_SPI_Background`
 
 ### ESP32 Background Read
 
@@ -403,6 +404,7 @@ Example sketches:
 
 - `examples/RD130_BitBang` — minimal BitBang
 - `examples/RD130_ArduinoSPI` — portable SPI on Uno, Mega or ESP32
+- `examples/RD130_ESP32_PreciseSPI` — minimal ESP32 precise SPI (13 clocks)
 - `examples/RD130_ESP32_Background` — BitBang with FreeRTOS background read
 - `examples/RD130_ESP32_SPI_Background` — ESP32 precise SPI with FreeRTOS background read
 - `examples/RD130_ADM3490_Diagnose` — BitBang with full serial diagnosis
@@ -463,6 +465,10 @@ pio run -e esp32-s3-devkitc-1
 cd ../RD130_ArduinoSPI
 pio run -e uno
 pio run -e mega2560
+pio run -e esp32dev
+
+cd ../RD130_ESP32_PreciseSPI
+pio run -e esp32-s3-devkitc-1
 pio run -e esp32dev
 
 cd ../RD130_ESP32_Background

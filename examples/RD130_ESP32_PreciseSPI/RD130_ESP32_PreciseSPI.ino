@@ -1,13 +1,12 @@
 /*
-  RD130_ESP32_SPI_Background.ino
+  RD130_ESP32_PreciseSPI.ino
 
-  ESP32 background read example for the TWK_KBE58_SSI library.
+  Minimal ESP32 precise SPI example for the TWK_KBE58_SSI library.
 
-  Uses ESP32 precise SPI (ESP-IDF SPI master) so exactly 13 SSI clock pulses
-  are generated. A FreeRTOS task reads the encoder in the background;
-  loop() prints results.
+  Uses the ESP-IDF SPI master API (not SPIClass) to generate exactly 13 SSI
+  clock pulses. Default pins: IO8 = clock, IO9 = data.
 
-  For minimal ESP32 precise SPI in loop(), see RD130_ESP32_PreciseSPI.
+  For FreeRTOS background read with the same mode, see RD130_ESP32_SPI_Background.
 
   This example reads the SSI absolute encoder inside a Rohde & Schwarz RD130
   rotor. The encoder is assumed to be a TWK KBE 58 - K 4096 G K E06 with Gray
@@ -111,21 +110,9 @@
 
 const uint8_t PIN_SSI_CLOCK = 8;
 const uint8_t PIN_SSI_DATA = 9;
-const uint32_t BACKGROUND_INTERVAL_MS = 10;
 const uint32_t SPI_FREQUENCY_HZ = 100000;
 
 TWK_KBE58_SSI encoder(PIN_SSI_CLOCK, PIN_SSI_DATA);
-
-void printReading(const TWK_KBE58_SSI::Reading &reading, Stream &out)
-{
-  out.print("Position: ");
-  out.print(reading.position);
-  out.print(" / ");
-  out.print(reading.stepsPerRevolution);
-  out.print(" Angle: ");
-  out.print(reading.angleDegRounded, 1);
-  out.println(" deg");
-}
 
 void setup()
 {
@@ -147,18 +134,8 @@ void setup()
   encoder.setSpiMode(SPI_MODE2);
   encoder.setFramePauseUs(80);
 
-  if (!encoder.startBackgroundRead(BACKGROUND_INTERVAL_MS))
-  {
-    Serial.println("Background read start failed");
-    Serial0.println("Background read start failed");
-    while (true)
-    {
-      delay(1000);
-    }
-  }
-
-  Serial.println("RD130 background read started (ESP32 precise SPI, 10 ms)");
-  Serial0.println("RD130 background read started (ESP32 precise SPI, 10 ms)");
+  Serial.println("RD130 ESP32 precise SPI started");
+  Serial0.println("RD130 ESP32 precise SPI started");
 #else
   Serial.println("This example requires an ESP32 board.");
 #endif
@@ -167,18 +144,24 @@ void setup()
 void loop()
 {
 #if defined(ESP32)
-  if (encoder.hasNewReading())
+  TWK_KBE58_SSI::Reading reading = encoder.read();
+
+  if (!reading.valid)
   {
-    TWK_KBE58_SSI::Reading reading = encoder.getLastReading();
-
-    if (!reading.valid)
-    {
-      return;
-    }
-
-    printReading(reading, Serial);
-    printReading(reading, Serial0);
+    return;
   }
+
+  Serial.print("Position: ");
+  Serial.print(reading.position);
+  Serial.print(" Angle: ");
+  Serial.println(reading.angleDegRounded, 1);
+
+  Serial0.print("Position: ");
+  Serial0.print(reading.position);
+  Serial0.print(" Angle: ");
+  Serial0.println(reading.angleDegRounded, 1);
+
+  delay(10);
 #else
   delay(1000);
 #endif
