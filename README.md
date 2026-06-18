@@ -206,6 +206,113 @@ Important notes:
 - For longer CLOCK lines, a 120 ohm termination at the encoder side may be required.
 ```
 
+## Reading Modes
+
+The library supports three reading modes:
+
+1. **BitBang mode** (default)
+2. **Portable Arduino SPI mode**
+3. **ESP32 precise SPI / background mode**
+
+SSI is not a continuous PWM-like clock. The clock is generated only during a read telegram and must be followed by a frame pause.
+
+### BitBang Mode
+
+BitBang mode is the default and works on all Arduino-compatible boards.
+
+```cpp
+encoder.begin();          // same as beginBitBang()
+encoder.beginBitBang();
+```
+
+Advantages:
+
+- Maximum portability
+- Exactly 13 SSI clock pulses
+- No SPI pin binding
+- Good diagnostic mode
+
+### Portable Arduino SPI Mode
+
+Arduino SPI mode uses the standard Arduino `SPI` library and can be used on Arduino and ESP32 boards.
+
+```cpp
+#include <SPI.h>
+
+encoder.beginSPI(SPI, SCK, MISO, 100000);
+encoder.setSpiMode(SPI_MODE2);
+encoder.setSpiTransferBits(16);
+encoder.setSpiRightShift(3);
+encoder.setFramePauseUs(80);
+```
+
+On ESP32 with free pins:
+
+```cpp
+SPIClass ssiSPI(FSPI);
+encoder.beginSPI(ssiSPI, PIN_SSI_CLOCK, PIN_SSI_DATA, 100000);
+```
+
+On classic Arduino boards, keep SS as output so SPI stays in master mode:
+
+```cpp
+encoder.setSpiDummySsPin(10);
+```
+
+**Important:** Portable Arduino SPI usually generates 16 clock pulses. The library discards the unused bits with `setSpiRightShift(3)`. For strict 13-clock SSI operation, use BitBang mode or ESP32 precise SPI mode.
+
+Test `SPI_MODE0` through `SPI_MODE3` on your hardware. With clock idle high, start with `SPI_MODE2` or `SPI_MODE3`.
+
+Example sketch: `examples/RD130_ArduinoSPI`
+
+### ESP32 Precise SPI / Background Mode
+
+ESP32 precise SPI mode uses the ESP-IDF SPI API and can generate exactly 13 SSI clock pulses.
+
+```cpp
+encoder.beginESP32PreciseSPI(PIN_SSI_CLOCK, PIN_SSI_DATA, 100000);
+encoder.setSpiMode(SPI_MODE2);
+```
+
+Optional background read with FreeRTOS:
+
+```cpp
+encoder.startBackgroundRead(20);   // read every 20 ms on core 1
+
+if (encoder.hasNewReading())
+{
+  TWK_KBE58_SSI::Reading reading = encoder.getLastReading();
+}
+```
+
+Example sketches:
+
+- `examples/RD130_BitBang`
+- `examples/RD130_ArduinoSPI`
+- `examples/RD130_ESP32_Background`
+- `examples/RD130_ADM3490_Diagnose` (BitBang diagnosis)
+
+## PlatformIO Build
+
+Each example includes its own `platformio.ini`. Build from the example directory:
+
+```powershell
+pio run -d examples/RD130_BitBang -e uno
+pio run -d examples/RD130_ArduinoSPI -e mega2560
+pio run -d examples/RD130_ArduinoSPI -e esp32dev
+pio run -d examples/RD130_ESP32_Background -e esp32-s3-devkitc-1
+pio run -d examples/RD130_ADM3490_Diagnose -e esp32-s3-devkitc-1
+```
+
+## Hardware Validation
+
+After wiring the encoder and RS422 transceiver, verify each mode:
+
+1. **BitBang** — position 0…4095 and angle 0.0…359.9 change plausibly when rotating
+2. **Arduino SPI** — test `SPI_MODE0`…`SPI_MODE3` and `setSpiRightShift(0…3)`; choose stable settings
+3. **ESP32 precise SPI** — compare raw values with BitBang mode
+4. **Background read** — `hasNewReading()` updates regularly while `loop()` stays free
+
 ## Example Output
 
 The example sketch prints diagnostic values to the serial console:

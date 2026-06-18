@@ -188,7 +188,7 @@ void setup()
 
   delay(3000);
 
-  encoder.begin();
+  encoder.beginBitBang();
 
   encoder.setHalfPeriodUs(5);
   encoder.setFramePauseUs(80);
@@ -201,6 +201,12 @@ void setup()
 void loop()
 {
   TWK_KBE58_SSI::Reading reading = encoder.read();
+
+  if (!reading.valid)
+  {
+    delay(200);
+    return;
+  }
 
   debugPrint("DATA-Idle: ");
   debugPrintInt(reading.dataIdleLevel);
