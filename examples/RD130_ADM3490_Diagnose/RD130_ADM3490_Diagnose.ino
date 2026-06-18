@@ -1,7 +1,8 @@
 /*
   RD130_ADM3490_Diagnose.ino
 
-  Example for the TWK_KBE58_SSI Arduino library.
+  BitBang diagnosis example for the TWK_KBE58_SSI library.
+  Prints raw value, Gray code, position, trailing bits and angle.
 
   This example reads the SSI absolute encoder inside a Rohde & Schwarz RD130
   rotor. The encoder is assumed to be a TWK KBE 58 - K 4096 G K E06 with Gray
@@ -26,11 +27,48 @@
 
                    ADM3490ARZ
             +----------------------+
-   +3V3 ----| 1 VCC            A 8 |---- DATA+  -> Encoder Pin 3
-   IO9  <---| 2 RO             B 7 |---- DATA-  -> Encoder Pin 4
-   IO8  --->| 3 DI             Z 6 |---- CLOCK- -> Encoder Pin 2
-   GND  ----| 4 GND            Y 5 |---- CLOCK+ -> Encoder Pin 1
+   +3V3 ----| 1 VCC            A 8 |---- DATA+ ---- Encoder Pin 4
+   IO9  ----| 2 RO             B 7 |---- DATA- ---- Encoder Pin 5
+   IO8  ----| 3 DI             Z 6 |---- CLOCK- ---- Encoder Pin 3
+   GND  ----| 4 GND            Y 5 |---- CLOCK+ ---- Encoder Pin 2
             +----------------------+
+
+  MAX490 connection for Arduino Uno, Nano or Mega (5 V):
+
+                   MAX490
+            +----------------------+
+   +5V  ----| VCC              TX+ |---- CLOCK+ ---- Encoder Pin 2
+   D13 ----| DI               TX- |---- CLOCK- ---- Encoder Pin 3
+   D12 ----| RO               RX+ |---- DATA+  ---- Encoder Pin 4
+   GND  ----| GND              RX- |---- DATA-  ---- Encoder Pin 5
+            +----------------------+
+            DE and RE tied for always-on transmit and receive.
+
+  Arduino Uno or Nano (BitBang example pins D8 and D9):
+
+    D8  -> MAX490 DI or TXD  -> encoder CLOCK+ and CLOCK-
+    D9  <- MAX490 RO or RXD  <- encoder DATA+ and DATA-
+    GND -> MAX490 GND        -> encoder GND
+
+  Arduino Uno or Nano (hardware SPI):
+
+    D13 (SCK)  -> MAX490 DI or TXD  -> encoder CLOCK+ and CLOCK-
+    D12 (MISO) <- MAX490 RO or RXD  <- encoder DATA+ and DATA-
+    D10 (SS)   kept OUTPUT HIGH for SPI master mode
+    D11 (MOSI) not connected for SSI
+
+  Arduino Mega 2560 (hardware SPI):
+
+    D52 (SCK)  -> MAX490 DI or TXD  -> encoder CLOCK+ and CLOCK-
+    D50 (MISO) <- MAX490 RO or RXD  <- encoder DATA+ and DATA-
+    D53 (SS)   kept OUTPUT HIGH for SPI master mode
+    D51 (MOSI) not connected for SSI
+
+  ESP32 or ESP32-S3 (BitBang or SPI with FSPI, example pins):
+
+    IO8  -> ADM3490 DI  -> encoder CLOCK+ and CLOCK-
+    IO9  <- ADM3490 RO  <- encoder DATA+ and DATA-
+    GND  -> ADM3490 GND -> encoder GND
 
   Connection at the Rohde & Schwarz RD130 rotor:
 
@@ -49,16 +87,16 @@
   1 ---> Motor 1 +
   2 ---> Motor 1 -
   3 ---> Filter 1 ground
-  4 ---> Motor 1 -
-  5 ---> Motor 1 +
+  4 ---> Motor 2 -
+  5 ---> Motor 2 +
   6 ---> Filter 2 ground
 
   Important notes:
-  - Never connect CLOCK+/CLOCK- or DATA+/DATA- directly to Arduino or ESP32 GPIO pins.
+  - Never connect CLOCK+ and CLOCK- or DATA+ and DATA- directly to Arduino or ESP32 GPIO pins.
   - Use the ADM3490ARZ for 3.3 V boards or another suitable full duplex RS422 transceiver.
   - For 5 V Arduino boards, use a 5 V full duplex RS422 transceiver such as the MAX490.
   - Connect microcontroller GND, RS422 transceiver GND and encoder 0 V together.
-  - Keep CLOCK+/CLOCK- and DATA+/DATA- as twisted or closely coupled pairs.
+  - Keep CLOCK+ and CLOCK- and DATA+ and DATA- as twisted or closely coupled pairs.
   - Use a 100 nF decoupling capacitor close to the RS422 transceiver VCC and GND pins.
   - For the DATA pair, a 120 ohm termination close to the receiver is recommended.
   - For longer CLOCK lines, a 120 ohm termination at the encoder side may be required.
