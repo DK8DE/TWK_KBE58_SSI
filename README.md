@@ -344,8 +344,8 @@ if (!encoder.beginESP32PreciseSPI(PIN_SSI_CLOCK, PIN_SSI_DATA, 100000))
   Serial.println("ESP32 precise SPI init failed");
 }
 
-encoder.setSpiMode(SPI_MODE2);
-encoder.setRawBitShift(0);   // optional fine tuning of raw bit alignment
+encoder.setSpiMode(SPI_MODE3);   // RD130 default (CPOL=1, CPHA=1)
+encoder.setRawBitShift(0);       // optional fine tuning of raw bit alignment
 ```
 
 Use this mode when portable Arduino SPI produces too many clock edges or unstable raw values on ESP32.
@@ -372,7 +372,8 @@ encoder.startBackgroundRead(10);
 
 ```cpp
 encoder.beginESP32PreciseSPI(PIN_SSI_CLOCK, PIN_SSI_DATA, 100000);
-encoder.setSpiMode(SPI_MODE2);
+encoder.setSpiMode(SPI_MODE3);
+encoder.setRawBitShift(0);
 encoder.setFramePauseUs(80);
 encoder.startBackgroundRead(10);
 ```

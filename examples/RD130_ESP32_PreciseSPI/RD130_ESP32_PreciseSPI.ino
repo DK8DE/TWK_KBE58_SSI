@@ -131,11 +131,14 @@ void setup()
     }
   }
 
-  encoder.setSpiMode(SPI_MODE2);
+  // RD130 timing matches BitBang sampling best with CPOL=1, CPHA=1 (SPI_MODE3).
+  // If your hardware differs, test SPI_MODE2.
+  encoder.setSpiMode(SPI_MODE3);
+  encoder.setRawBitShift(0);
   encoder.setFramePauseUs(80);
 
-  Serial.println("RD130 ESP32 precise SPI started");
-  Serial0.println("RD130 ESP32 precise SPI started");
+  Serial.println("RD130 ESP32 precise SPI started (MODE3)");
+  Serial0.println("RD130 ESP32 precise SPI started (MODE3)");
 #else
   Serial.println("This example requires an ESP32 board.");
 #endif

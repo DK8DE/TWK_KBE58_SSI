@@ -591,13 +591,14 @@ uint32_t TWK_KBE58_SSI::readRawESP32PreciseSPI()
     return 0;
   }
 
-  uint32_t rx = 0;
+  uint8_t rxBytes[4] = {0, 0, 0, 0};
+  const uint8_t rxByteCount = (uint8_t)((_totalClocks + 7) / 8);
 
   spi_transaction_t transaction = {};
   transaction.length = 0;
   transaction.rxlength = _totalClocks;
   transaction.tx_buffer = nullptr;
-  transaction.rx_buffer = &rx;
+  transaction.rx_buffer = rxBytes;
 
   delayMicroseconds(_framePauseUs);
 
@@ -610,6 +611,20 @@ uint32_t TWK_KBE58_SSI::readRawESP32PreciseSPI()
     _lastReadValid = false;
     _errorCounter++;
     return 0;
+  }
+
+  uint32_t rx = 0;
+
+  for (uint8_t byteIndex = 0; byteIndex < rxByteCount; byteIndex++)
+  {
+    rx = (rx << 8) | (uint32_t)rxBytes[byteIndex];
+  }
+
+  const uint8_t bitRemainder = _totalClocks % 8;
+
+  if (bitRemainder != 0)
+  {
+    rx >>= (8 - bitRemainder);
   }
 
   if (_rawBitShift > 0)

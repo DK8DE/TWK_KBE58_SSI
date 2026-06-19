@@ -144,7 +144,10 @@ void setup()
     }
   }
 
-  encoder.setSpiMode(SPI_MODE2);
+  // RD130 timing matches BitBang sampling best with CPOL=1, CPHA=1 (SPI_MODE3).
+  // If your hardware differs, test SPI_MODE2.
+  encoder.setSpiMode(SPI_MODE3);
+  encoder.setRawBitShift(0);
   encoder.setFramePauseUs(80);
 
   if (!encoder.startBackgroundRead(BACKGROUND_INTERVAL_MS))
